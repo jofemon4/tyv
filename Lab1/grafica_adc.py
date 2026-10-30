@@ -17,12 +17,9 @@ pendiente, intercepto = np.polyfit(x, y, 1)
 y_ideal = pendiente * x + intercepto
 
 # 3. Cálculo de INL (Integral Non-Linearity)
-# El INL se calcula como la diferencia entre el valor real y el ideal, expresado en LSBs
-# LSB ideal en términos de voltaje o códigos
 inl = (y - y_ideal) / pendiente  # Convertido a equivalencia en voltios / LSB
 
 # 4. Cálculo de DNL (Differential Non-Linearity)
-# Obtenemos el ancho de cada código encontrando el cambio de voltaje medio por cada código
 codigos_unicos = np.unique(y)
 anchos_codigo = []
 codigos_validos = []
@@ -46,10 +43,12 @@ else:
 # --- 5. GENERACIÓN DE GRÁFICAS MULTIPANEL ---
 fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 
-# Gráfica 1: Función de Transferencia y Ajuste Lineal
+# Gráfica 1: Función de Transferencia y Ajuste Lineal (CORREGIDO set_title)
 axs[0, 0].scatter(x, y, color="blue", s=5, alpha=0.5, label="Datos Medidos")
 axs[0, 0].plot(x, y_ideal, color="red", linestyle="--", label="Ajuste Ideal")
-axs[0, 0].setTitle("1. Función de Transferencia")
+axs[0, 0].set_title(
+    "1. Función de Transferencia"
+)  # <-- Corregido de setTitle a set_title
 axs[0, 0].set_xlabel("Tensión de Entrada (V)")
 axs[0, 0].set_ylabel("Código ADC")
 axs[0, 0].grid(True, linestyle="--", alpha=0.6)
