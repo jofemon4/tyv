@@ -12,12 +12,17 @@ df = df.dropna()
 x = df["V_Generador"].values
 y = df["ADC_Code"].values
 
-# 2. Regresión Lineal (Ganancia y Offset)
+# 2. Regresión Lineal (Ganancia, Offset y R^2)
 pendiente, intercepto = np.polyfit(x, y, 1)
 y_ideal = pendiente * x + intercepto
 
+ss_res = np.sum((y - y_ideal) ** 2)
+ss_tot = np.sum((y - np.mean(y)) ** 2)
+r_squared = 1 - (ss_res / ss_tot)
+
 # 3. Cálculo de INL (Integral Non-Linearity)
-inl = (y - y_ideal) / pendiente  # Convertido a equivalencia en voltios / LSB
+# Diferencia en códigos convertida a LSBs reales según la pendiente
+inl = (y - y_ideal)
 
 # 4. Cálculo de DNL (Differential Non-Linearity)
 codigos_unicos = np.unique(y)
@@ -37,62 +42,93 @@ if len(anchos_codigo) > 0:
   ancho_ideal = 1.0 / pendiente
   dnl = (np.array(anchos_codigo) - ancho_ideal) / ancho_ideal
 else:
-  dnl = np.array([0])
+  dnl = np.array([0.0])
   codigos_validos = [0]
 
-# --- 5. GENERACIÓN DE GRÁFICAS MULTIPANEL ---
-fig, axs = plt.subplots(2, 2, figsize=(14, 10))
-
-# Gráfica 1: Función de Transferencia y Ajuste Lineal (CORREGIDO set_title)
-axs[0, 0].scatter(x, y, color="blue", s=5, alpha=0.5, label="Datos Medidos")
-axs[0, 0].plot(x, y_ideal, color="red", linestyle="--", label="Ajuste Ideal")
-axs[0, 0].set_title(
-    "1. Función de Transferencia"
-)  # <-- Corregido de setTitle a set_title
-axs[0, 0].set_xlabel("Tensión de Entrada (V)")
-axs[0, 0].set_ylabel("Código ADC")
-axs[0, 0].grid(True, linestyle="--", alpha=0.6)
-axs[0, 0].legend(loc="upper left")
-
-# Gráfica 2: INL (Non-Linearity Integral)
-axs[0, 1].plot(x, inl, color="purple", linewidth=1.5)
-axs[0, 1].set_title("2. INL (Integral Non-Linearity)")
-axs[0, 1].set_xlabel("Tensión de Entrada (V)")
-axs[0, 1].set_ylabel("Error INL (LSB)")
-axs[0, 1].grid(True, linestyle="--", alpha=0.6)
-
-# Gráfica 3: DNL (Differential Non-Linearity)
-axs[1, 0].plot(
-    codigos_validos, dnl, color="green", linewidth=1, marker=".", markersize=2
-)
-axs[1, 0].set_title("3. DNL (Differential Non-Linearity)")
-axs[1, 0].set_xlabel("Código ADC")
-axs[1, 0].set_ylabel("Error DNL (LSB)")
-axs[1, 0].grid(True, linestyle="--", alpha=0.6)
-axs[1, 0].axhline(0, color="black", linewidth=0.8, linestyle="--")
-
-# Gráfica 4: Resumen Estadístico Textual
-axs[1, 1].axis("off")
-texto_resumen = (
-    f"RESUMEN DE CARACTERIZACIÓN ADC:\n\n"
-    f" • Ganancia (Pendiente): {pendiente:.4f} códigos/V\n"
-    f" • Error de Offset: {intercepto:.4f} códigos\n"
-    f" • INL Máximo: {np.max(np.abs(inl)):.3f} LSB\n"
-    f" • DNL Máximo: {np.max(np.abs(dnl)):.3f} LSB\n"
-    f" • Rango analizado: {len(df)} muestras"
-)
-axs[1, 1].text(
-    0.1,
-    0.5,
-    texto_resumen,
-    fontsize=12,
-    family="monospace",
-    bbox=dict(boxstyle="round,pad=1", facecolor="wheat", alpha=0.5),
-)
-
-plt.tight_layout()
-plt.savefig("caracterizacion_adc_completa.png", dpi=300, bbox_inches="tight")
+# --- 5. RESULTADOS NUMÉRICOS POR CONSOLA ---
+print("\n" + "=" * 52)
+print("       RESULTADOS NUMÉRICOS - CARACTERIZACIÓN ADC      ")
+print("=" * 52)
+print(f" • Muestras válidas analizadas : {len(df)}")
+print(f" • Ganancia (Pendiente)        : {pendiente:.4f} códigos/V")
+print(f" • Error de Offset (Intercepto): {intercepto:.4f} códigos")
+print(f" • Linealidad (R^2)            : {r_squared:.6f}")
+print("-" * 52)
+print(f" • INL Máximo absoluto         : {np.max(np.abs(inl)):.4f} LSB")
 print(
-    "Informe gráfico guardado con éxito como 'caracterizacion_adc_completa.png'."
+    f" • INL Rango (Min / Max)       : {np.min(inl):.4f} LSB  / "
+    f" {np.max(inl):.4f} LSB"
 )
+print(f" • DNL Máximo absoluto         : {np.max(np.abs(dnl)):.4f} LSB")
+print(
+    f" • DNL Rango (Min / Max)       : {np.min(dnl):.4f} LSB  / "
+    f" {np.max(dnl):.4f} LSB"
+)
+print("=" * 52 + "\n")
+
+# --- 6. GRÁFICA 1: FUNCIÓN DE TRANSFERENCIA ---
+plt.figure(figsize=(9, 6))
+plt.scatter(x, y, color="blue", s=12, alpha=0.5, label="Datos Medidos")
+plt.plot(
+    x,
+    y_ideal,
+    color="red",
+    linestyle="--",
+    linewidth=2,
+    label=f"Ajuste Lineal: y = {pendiente:.2f}x + {intercepto:.2f}",
+)
+plt.title(
+    "Función de Transferencia y Ajuste Lineal del ADC",
+    fontsize=13,
+    fontweight="bold",
+)
+plt.xlabel("Tensión de Entrada (V)", fontsize=11)
+plt.ylabel("Código ADC", fontsize=11)
+plt.grid(True, linestyle="--", alpha=0.6)
+plt.legend(loc="upper left")
+plt.tight_layout()
+plt.savefig("funcion_transferencia_adc.png", dpi=300, bbox_inches="tight")
+print("Guardada: 'funcion_transferencia_adc.png'")
+
+# --- 7. GRÁFICA 2: INL (INTEGRAL NON-LINEARITY) ---
+plt.figure(figsize=(9, 6))
+plt.plot(x, inl, color="purple", linewidth=1.5, label="INL")
+plt.axhline(0, color="black", linewidth=0.8, linestyle="--")
+plt.title(
+    "No Linealidad Integral (INL) del ADC", fontsize=13, fontweight="bold"
+)
+plt.xlabel("Tensión de Entrada (V)", fontsize=11)
+plt.ylabel("Error INL (LSB)", fontsize=11)
+plt.grid(True, linestyle="--", alpha=0.6)
+plt.legend(loc="best")
+plt.tight_layout()
+plt.savefig("inl_adc.png", dpi=300, bbox_inches="tight")
+print("Guardada: 'inl_adc.png'")
+
+# --- 8. GRÁFICA 3: DNL (DIFFERENTIAL NON-LINEARITY) ---
+plt.figure(figsize=(9, 6))
+plt.plot(
+    codigos_validos,
+    dnl,
+    color="green",
+    linewidth=1,
+    marker=".",
+    markersize=3,
+    label="DNL",
+)
+plt.axhline(0, color="black", linewidth=0.8, linestyle="--")
+plt.axhline(1, color="red", linewidth=0.8, linestyle=":", label="Límite ±1 LSB")
+plt.axhline(-1, color="red", linewidth=0.8, linestyle=":")
+plt.title(
+    "No Linealidad Diferencial (DNL) del ADC", fontsize=13, fontweight="bold"
+)
+plt.xlabel("Código ADC", fontsize=11)
+plt.ylabel("Error DNL (LSB)", fontsize=11)
+plt.grid(True, linestyle="--", alpha=0.6)
+plt.legend(loc="upper right")
+plt.tight_layout()
+plt.savefig("dnl_adc.png", dpi=300, bbox_inches="tight")
+print("Guardada: 'dnl_adc.png'")
+
+# Mostrar las tres ventanas por separado
 plt.show()
