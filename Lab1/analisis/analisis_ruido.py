@@ -1,26 +1,20 @@
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-# Si guardaste las muestras en un CSV con columna 'ADC_Code', usa esto:
-# Si no, puedes pegar aquí tus lecturas como lista: lecturas = [512, 513, ...]
-nombre_csv = "medidas_ruido.csv"
+OUT_DIR = Path(__file__).resolve().parent.parent / "outputs"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+csv_entrada = OUT_DIR / "medidas_ruido.csv"
 
-try:
-  df = pd.read_csv(nombre_csv, delimiter=";")
-  lecturas = pd.to_numeric(df["ADC_Code"], errors="coerce").dropna().values
-except FileNotFoundError:
-  print(
-      f"No se encontró '{nombre_csv}'. Usando datos de ejemplo; cámbialos por"
-      " tus lecturas reales."
-  )
-  lecturas = np.random.normal(loc=512, scale=0.8, size=300).round().astype(int)
+df = pd.read_csv(csv_entrada, delimiter=";")
+lecturas = pd.to_numeric(df["ADC_Code"], errors="coerce").dropna().values
 
 media = np.mean(lecturas)
 std_dev = np.std(lecturas)
 pico_a_pico = np.ptp(lecturas)
-min_val = np.min(lecturas)
-max_val = np.max(lecturas)
+min_val = int(np.min(lecturas))
+max_val = int(np.max(lecturas))
 
 print("\n" + "=" * 50)
 print("        RESULTADOS NUMÉRICOS - ANÁLISIS DE RUIDO      ")
@@ -52,6 +46,8 @@ plt.ylabel("Frecuencia (nº de muestras)", fontsize=11)
 plt.grid(axis="y", linestyle="--", alpha=0.6)
 plt.legend()
 plt.tight_layout()
-plt.savefig("ruido_histograma_adc.png", dpi=300, bbox_inches="tight")
-print("Guardada: 'ruido_histograma_adc.png'")
+plt.savefig(
+    OUT_DIR / "ruido_histograma_adc.png", dpi=300, bbox_inches="tight"
+)
+print(f"Gráfica guardada en: {OUT_DIR / 'ruido_histograma_adc.png'}")
 plt.show()

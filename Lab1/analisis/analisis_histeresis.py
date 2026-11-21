@@ -1,16 +1,19 @@
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-nombre_csv = "medidas_histeresis.csv"
-df = pd.read_csv(nombre_csv, delimiter=";")
+OUT_DIR = Path(__file__).resolve().parent.parent / "outputs"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+csv_entrada = OUT_DIR / "medidas_histeresis.csv"
+
+df = pd.read_csv(csv_entrada, delimiter=";")
 df["ADC_Code"] = pd.to_numeric(df["ADC_Code"], errors="coerce")
 df = df.dropna()
 
 ida = df[df["Direccion"] == "Ida"].sort_values("V_Generador")
 vuelta = df[df["Direccion"] == "Vuelta"].sort_values("V_Generador")
 
-# Interpolación para comparar códigos en los mismos voltajes si hay ligero desajuste
 v_comun = np.linspace(
     max(ida["V_Generador"].min(), vuelta["V_Generador"].min()),
     min(ida["V_Generador"].max(), vuelta["V_Generador"].max()),
@@ -54,6 +57,6 @@ plt.ylabel("Código ADC", fontsize=11)
 plt.grid(True, linestyle="--", alpha=0.6)
 plt.legend()
 plt.tight_layout()
-plt.savefig("histeresis_adc.png", dpi=300, bbox_inches="tight")
-print("Guardada: 'histeresis_adc.png'")
+plt.savefig(OUT_DIR / "histeresis_adc.png", dpi=300, bbox_inches="tight")
+print(f"Gráfica guardada en: {OUT_DIR / 'histeresis_adc.png'}")
 plt.show()

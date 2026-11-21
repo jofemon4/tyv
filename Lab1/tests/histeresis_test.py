@@ -1,3 +1,4 @@
+from pathlib import Path
 import time
 import pandas as pd
 import pyvisa
@@ -9,7 +10,11 @@ BAUDIOS = 115200
 
 V_MIN = 0.0
 V_MAX = 5.0
-NUM_PASOS = 50  # Pasos para la ida y para la vuelta
+NUM_PASOS = 50
+
+OUT_DIR = Path(__file__).resolve().parent.parent / "outputs"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+csv_salida = OUT_DIR / "medidas_histeresis.csv"
 
 rm = pyvisa.ResourceManager()
 gen = rm.open_resource(VISA_GEN_ADDRESS)
@@ -22,32 +27,30 @@ voltajes_ida = [
     V_MIN + i * (V_MAX - V_MIN) / (NUM_PASOS - 1) for i in range(NUM_PASOS)
 ]
 voltajes_vuelta = list(reversed(voltajes_ida))
-resultados_histeresis = []
+resultados = []
 
 try:
-  print("Iniciando Ensayo de Histéresis...")
+  print("Iniciando ensayo de histéresis...")
   gen.write("SOUR1:FUNC DC")
   gen.write(f"VOLT:OFFS {V_MIN}")
   gen.write("OUTP1 ON")
   time.sleep(2.0)
 
-  # --- BARRIDO DE IDA (0V -> 5V) ---
-  print("Ejecutando barrido de IDA (0V -> 5V)...")
+  print("Barrido de IDA (0V -> 5V)...")
   for v in voltajes_ida:
     gen.write(f"VOLT:OFFS {v}")
-    time.sleep(1.5)  # Pausa de seguridad
+    time.sleep(1.5)
     arduino.reset_input_buffer()
     arduino.write(b"r")
     val = arduino.readline().decode("utf-8").strip()
     try:
-      resultados_histeresis.append(
+      resultados.append(
           {"Direccion": "Ida", "V_Generador": v, "ADC_Code": int(val)}
       )
     except ValueError:
       pass
 
-  # --- BARRIDO DE VUELTA (5V -> 0V) ---
-  print("Ejecutando barrido de VUELTA (5V -> 0V)...")
+  print("Barrido de VUELTA (5V -> 0V)...")
   for v in voltajes_vuelta:
     gen.write(f"VOLT:OFFS {v}")
     time.sleep(1.5)
@@ -55,18 +58,21 @@ try:
     arduino.write(b"r")
     val = arduino.readline().decode("utf-8").strip()
     try:
-      resultados_histeresis.append(
+      resultados.append(
           {"Direccion": "Vuelta", "V_Generador": v, "ADC_Code": int(val)}
       )
     except ValueError:
       pass
 
 finally:
-  gen.write("OUTP1 OFF")
+  try:
+    gen.write("OUTP1 OFF")
+  except Exception:
+    pass
   arduino.close()
   gen.close()
   rm.close()
 
-df = pd.DataFrame(resultados_histeresis)
-df.to_csv("medidas_histeresis.csv", sep=";", index=False)
-print("Ensayo de histéresis finalizado. Guardado en 'medidas_histeresis.csv'.")
+df = pd.DataFrame(resultados)
+df.to_csv(csv_salida, sep=";", index=False)
+print(f"Datos de histéresis guardados en: {csv_salida}")

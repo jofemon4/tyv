@@ -1,35 +1,33 @@
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-# 1. Cargar datos del CSV
-nombre_csv = "medidas_adc_arduino.csv"
-print(f"Leyendo datos desde '{nombre_csv}'...")
-df = pd.read_csv(nombre_csv, delimiter=";")
+OUT_DIR = Path(__file__).resolve().parent.parent / "outputs"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+csv_entrada = OUT_DIR / "medidas_adc_arduino.csv"
+
+df = pd.read_csv(csv_entrada, delimiter=";")
 df["ADC_Code"] = pd.to_numeric(df["ADC_Code"], errors="coerce")
 df = df.dropna()
 
 x = df["V_Generador"].values
 y = df["ADC_Code"].values
 
-# 2. Regresión Lineal (Ganancia, Offset y R^2)
 pendiente, intercepto = np.polyfit(x, y, 1)
 y_ideal = pendiente * x + intercepto
 
 ss_res = np.sum((y - y_ideal) ** 2)
 ss_tot = np.sum((y - np.mean(y)) ** 2)
-r_squared = 1 - (ss_res / ss_tot)
+r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 1.0
 
-# 3. Cálculo de INL (Integral Non-Linearity)
-# Diferencia en códigos convertida a LSBs reales según la pendiente
-inl = (y - y_ideal)
+inl = y - y_ideal
 
-# 4. Cálculo de DNL (Differential Non-Linearity)
 codigos_unicos = np.unique(y)
 anchos_codigo = []
 codigos_validos = []
 
-for c in range(int(min(codigos_unicos)), int(max(codigos_unicos))):
+for c in range(int(np.min(codigos_unicos)), int(np.max(codigos_unicos))):
   mask = y == c
   if np.sum(mask) > 1:
     v_asociados = x[mask]
@@ -38,14 +36,13 @@ for c in range(int(min(codigos_unicos)), int(max(codigos_unicos))):
       anchos_codigo.append(ancho)
       codigos_validos.append(c)
 
-if len(anchos_codigo) > 0:
+if anchos_codigo:
   ancho_ideal = 1.0 / pendiente
   dnl = (np.array(anchos_codigo) - ancho_ideal) / ancho_ideal
 else:
   dnl = np.array([0.0])
   codigos_validos = [0]
 
-# --- 5. RESULTADOS NUMÉRICOS POR CONSOLA ---
 print("\n" + "=" * 52)
 print("       RESULTADOS NUMÉRICOS - CARACTERIZACIÓN ADC      ")
 print("=" * 52)
@@ -66,7 +63,7 @@ print(
 )
 print("=" * 52 + "\n")
 
-# --- 6. GRÁFICA 1: FUNCIÓN DE TRANSFERENCIA ---
+# Gráfica 1: Función de Transferencia
 plt.figure(figsize=(9, 6))
 plt.scatter(x, y, color="blue", s=12, alpha=0.5, label="Datos Medidos")
 plt.plot(
@@ -87,10 +84,11 @@ plt.ylabel("Código ADC", fontsize=11)
 plt.grid(True, linestyle="--", alpha=0.6)
 plt.legend(loc="upper left")
 plt.tight_layout()
-plt.savefig("funcion_transferencia_adc.png", dpi=300, bbox_inches="tight")
-print("Guardada: 'funcion_transferencia_adc.png'")
+plt.savefig(
+    OUT_DIR / "funcion_transferencia_adc.png", dpi=300, bbox_inches="tight"
+)
 
-# --- 7. GRÁFICA 2: INL (INTEGRAL NON-LINEARITY) ---
+# Gráfica 2: INL
 plt.figure(figsize=(9, 6))
 plt.plot(x, inl, color="purple", linewidth=1.5, label="INL")
 plt.axhline(0, color="black", linewidth=0.8, linestyle="--")
@@ -102,10 +100,9 @@ plt.ylabel("Error INL (LSB)", fontsize=11)
 plt.grid(True, linestyle="--", alpha=0.6)
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig("inl_adc.png", dpi=300, bbox_inches="tight")
-print("Guardada: 'inl_adc.png'")
+plt.savefig(OUT_DIR / "inl_adc.png", dpi=300, bbox_inches="tight")
 
-# --- 8. GRÁFICA 3: DNL (DIFFERENTIAL NON-LINEARITY) ---
+# Gráfica 3: DNL
 plt.figure(figsize=(9, 6))
 plt.plot(
     codigos_validos,
@@ -127,8 +124,7 @@ plt.ylabel("Error DNL (LSB)", fontsize=11)
 plt.grid(True, linestyle="--", alpha=0.6)
 plt.legend(loc="upper right")
 plt.tight_layout()
-plt.savefig("dnl_adc.png", dpi=300, bbox_inches="tight")
-print("Guardada: 'dnl_adc.png'")
+plt.savefig(OUT_DIR / "dnl_adc.png", dpi=300, bbox_inches="tight")
 
-# Mostrar las tres ventanas por separado
+print(f"Gráficas guardadas en: {OUT_DIR}")
 plt.show()
